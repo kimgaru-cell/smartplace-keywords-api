@@ -15,7 +15,7 @@ app.post('/api/get-keywords', async (req, res) => {
   try {
     const browser = await puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: process.env.NODE_ENV === 'production' ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
     });
 
     const page = await browser.newPage();
