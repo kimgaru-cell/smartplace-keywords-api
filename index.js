@@ -5,6 +5,9 @@ import { execSync } from 'child_process';
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+// 💡 CORS 수동 헤더 보강
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -12,7 +15,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+// 💡 OPTIONS 요청 명시 응답 (가장 중요!)
+app.options('*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
 
 const getChromePath = () => {
   try {
