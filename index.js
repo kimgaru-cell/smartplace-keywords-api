@@ -17,9 +17,24 @@ const getChromePath = () => {
 };
 
 app.post('/api/get-keywords', async (req, res) => {
-  const { placeUrl } = req.body;
+  let { placeUrl } = req.body;
 
   try {
+    // ① naver.me 공유 링크 처리
+    if (placeUrl.includes('naver.me')) {
+      const response = await fetch(placeUrl, { redirect: 'follow' });
+      placeUrl = response.url; // 자동 리디렉션 추적
+    }
+
+    // ② map.naver.com 주소에서 placeId 추출
+    if (placeUrl.includes('map.naver.com') && placeUrl.includes('place/')) {
+      const match = placeUrl.match(/place\/(\d+)/);
+      if (match && match[1]) {
+        const placeId = match[1];
+        placeUrl = `https://pcmap.place.naver.com/restaurant/${placeId}/home`;
+      }
+    }
+
     const browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -29,7 +44,7 @@ app.post('/api/get-keywords', async (req, res) => {
     await page.goto(placeUrl, { waitUntil: 'networkidle2' });
 
     const keywords = await page.evaluate(() => {
-      const elements = document.querySelectorAll('.zPfVt'); // 필요 시 클래스 수정
+      const elements = document.querySelectorAll('.zPfVt'); // 키워드 class
       return Array.from(elements).map(el => el.textContent.trim());
     });
 
@@ -41,6 +56,7 @@ app.post('/api/get-keywords', async (req, res) => {
 
     res.json({ keywords });
   } catch (err) {
+    console.error('크롤링 실패:', err);
     res.status(500).json({ error: '크롤링 실패: ' + err.message });
   }
 });
