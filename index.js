@@ -44,8 +44,7 @@ app.post('/api/get-keywords', async (req, res) => {
     await page.goto(placeUrl, { waitUntil: 'networkidle2' });
 
     const keywords = await page.evaluate(() => {
-      const elements = document.querySelectorAll('.zPfVt'); // 키워드 class
-      return Array.from(elements).map(el => el.textContent.trim());
+      return (window.__place_datum__?.keywordList || []).map(k => k.replace(/^#/, ''));
     });
 
     await browser.close();
