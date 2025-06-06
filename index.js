@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import puppeteer from 'puppeteer';
 import express from 'express';
 import cors from 'cors';
