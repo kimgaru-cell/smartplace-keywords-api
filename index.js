@@ -1,4 +1,4 @@
-import { launch } from 'puppeteer-core';
+import puppeteer from 'puppeteer';
 import express from 'express';
 import cors from 'cors';
 import { execSync } from 'child_process';
@@ -18,16 +18,10 @@ const getChromePath = () => {
 
 app.post('/api/get-keywords', async (req, res) => {
   const { placeUrl } = req.body;
-  const executablePath = getChromePath();
-
-  if (!executablePath) {
-    return res.status(500).json({ error: '크롬 실행 파일을 찾을 수 없습니다.' });
-  }
 
   try {
-    const browser = await launch({
+    const browser = await puppeteer.launch({
       headless: 'new',
-      executablePath,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
