@@ -7,15 +7,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// apt 로 설치된 chromium 경로 추출
 const getChromePath = () => {
   try {
-    return execSync('which chromium-browser || which chromium')
-      .toString()
-      .trim();
-  } catch {
-    return null;
-  }
+    // ① 먼저 apt로 설치된 'chromium' 경로를 찾아봅니다.
+    const path = execSync('which chromium').toString().trim();
+    if (path) return path;
+  } catch {}
+
+  try {
+    // ② 그래도 못 찾으면 'chromium-browser'도 시도해봅니다.
+    const path = execSync('which chromium-browser').toString().trim();
+    return path;
+  } catch {}
+
+  return null; // 둘 다 없으면 null 반환
 };
 
 app.post('/api/get-keywords', async (req, res) => {
