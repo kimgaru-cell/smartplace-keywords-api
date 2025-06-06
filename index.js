@@ -2,19 +2,14 @@ import fetch from 'node-fetch';
 import puppeteer from 'puppeteer';
 import express from 'express';
 import cors from 'cors';
-import { execSync } from 'child_process';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const getChromePath = () => {
-  try {
-    // Railway/Nixpacks 환경에서는 ‘chromium’만 실제 바이너리입니다.
-    return execSync('which chromium').toString().trim();
-  } catch {
-    return null;             // 못 찾으면 null 반환 → 위에서 에러 처리
-  }
+  // 일반적인 Railway 환경에서의 경로로 강제 지정
+  return '/usr/bin/chromium';
 };
 
 app.post('/api/get-keywords', async (req, res) => {
