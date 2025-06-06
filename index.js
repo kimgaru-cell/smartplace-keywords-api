@@ -7,10 +7,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// apt 로 설치된 chromium 경로 추출
 const getChromePath = () => {
   try {
-    const path = execSync('which chromium-browser || which chromium').toString().trim();
-    return path;
+    return execSync('which chromium-browser || which chromium')
+      .toString()
+      .trim();
   } catch {
     return null;
   }
@@ -20,45 +22,48 @@ app.post('/api/get-keywords', async (req, res) => {
   let { placeUrl } = req.body;
 
   try {
-    // ① naver.me 공유 링크 처리
+    /* 1) naver.me 단축 URL → 실제 URL 로 변환 */
     if (placeUrl.includes('naver.me')) {
-      const response = await fetch(placeUrl, { redirect: 'follow' });
-      placeUrl = response.url; // 자동 리디렉션 추적
+      const r = await fetch(placeUrl, { redirect: 'follow' });
+      placeUrl = r.url;
     }
 
-    // ② map.naver.com 주소에서 placeId 추출
+    /* 2) map.naver.com URL → pcmap.place.naver.com 형식으로 통일 */
     if (placeUrl.includes('map.naver.com') && placeUrl.includes('place/')) {
-      const match = placeUrl.match(/place\/(\d+)/);
-      if (match && match[1]) {
-        const placeId = match[1];
-        placeUrl = `https://pcmap.place.naver.com/restaurant/${placeId}/home`;
-      }
+      const m = placeUrl.match(/place\/(\d+)/);
+      if (m?.[1]) placeUrl = `https://pcmap.place.naver.com/restaurant/${m[1]}/home`;
     }
+
+    /* 3) 브라우저 실행 */
+    const executablePath = getChromePath();
+    if (!executablePath) throw new Error('Chromium 실행 파일을 찾을 수 없습니다.');
 
     const browser = await puppeteer.launch({
       headless: 'new',
+      executablePath,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
     await page.goto(placeUrl, { waitUntil: 'networkidle2' });
 
-    // keywordList가 생길 때까지 최대 5초 대기
-    await page.waitForFunction(
-      'window.__place_datum__ && Array.isArray(window.__place_datum__.keywordList) && window.__place_datum__.keywordList.length > 0',
-      { timeout: 5000 }
-    );
-    
+    /* 4) __APOLLO_STATE__ 안에서 keywordList 추출 */
     const keywords = await page.evaluate(() => {
-      return (window.__place_datum__?.keywordList || []).map(k => k.replace(/^#/, ''));
+      const state = window.__APOLLO_STATE__ ?? {};
+      for (const key in state) {
+        const obj = state[key];
+        if (obj && Array.isArray(obj.keywordList) && obj.keywordList.length) {
+          return obj.keywordList.map(k => k.replace(/^#/, ''));
+        }
+      }
+      return [];
     });
 
     await browser.close();
 
-    if (!keywords || keywords.length === 0) {
+    if (!keywords.length) {
       return res.status(404).json({ error: '대표 키워드를 찾을 수 없습니다.' });
     }
-
     res.json({ keywords });
   } catch (err) {
     console.error('크롤링 실패:', err);
@@ -67,4 +72,4 @@ app.post('/api/get-keywords', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ 서버 실행 중 (PORT ${PORT})`));
+app.listen(PORT, () => console.log(`✅  서버 실행 중 (PORT ${PORT})`));
