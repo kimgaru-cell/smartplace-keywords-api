@@ -43,6 +43,11 @@ app.post('/api/get-keywords', async (req, res) => {
     const page = await browser.newPage();
     await page.goto(placeUrl, { waitUntil: 'networkidle2' });
 
+    // keywordList가 뜰 때까지 최대 5초 기다림
+    await page.waitForFunction(() => {
+      return window.__place_datum__?.keywordList?.length > 0;
+    }, { timeout: 5000 });
+    
     const keywords = await page.evaluate(() => {
       return (window.__place_datum__?.keywordList || []).map(k => k.replace(/^#/, ''));
     });
