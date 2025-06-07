@@ -34,7 +34,17 @@ app.post('/api/get-keywords', async (req, res) => {
     const page = await browser.newPage();
     await page.goto(placeUrl, { waitUntil: 'networkidle2' });
 
-    // ④ 대표 키워드 추출 (__APOLLO_STATE__ 안에서 추출)
+    // ✅ keywordList가 뜰 때까지 최대 5초간 기다리기
+    await page.waitForFunction(
+      () =>
+        window.__APOLLO_STATE__ &&
+        Object.values(window.__APOLLO_STATE__).some(
+          x => Array.isArray(x.keywordList) && x.keywordList.length > 0
+        ),
+      { timeout: 5000 }
+    );
+    
+    // ✅ keywordList 추출
     const keywords = await page.evaluate(() => {
       const state = window.__APOLLO_STATE__ ?? {};
       for (const key in state) {
