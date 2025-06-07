@@ -11,40 +11,43 @@ app.post('/api/get-keywords', async (req, res) => {
   let { placeUrl } = req.body;
 
   try {
-    // ① naver.me 단축 URL 처리
     if (placeUrl.includes('naver.me')) {
       const r = await fetch(placeUrl, { redirect: 'follow' });
       placeUrl = r.url;
     }
 
-    // ② map.naver.com URL → 스마트플레이스 URL로 변환
     if (placeUrl.includes('map.naver.com') && placeUrl.includes('place/')) {
-      const match = placeUrl.match(/place\/(\d+)/);
-      if (match?.[1]) {
-        placeUrl = `https://pcmap.place.naver.com/restaurant/${match[1]}/home`;
-      }
+      const m = placeUrl.match(/place\/(\d+)/);
+      if (m?.[1]) placeUrl = `https://pcmap.place.naver.com/restaurant/${m[1]}/home`;
     }
 
-    // ③ Puppeteer 브라우저 실행 (내장 Chromium 사용)
     const browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36'
+    );
     await page.goto(placeUrl, { waitUntil: 'networkidle2' });
 
-    // ✅ keywordList가 뜰 때까지 최대 5초간 기다리기
-    await page.waitForFunction(
-      () =>
-        window.__APOLLO_STATE__ &&
-        Object.values(window.__APOLLO_STATE__).some(
-          x => Array.isArray(x.keywordList) && x.keywordList.length > 0
-        ),
-      { timeout: 5000 }
-    );
-    
-    // ✅ keywordList 추출
+    // ── keywordList 로딩 대기 (최대 15초) ──
+    try {
+      await page.waitForFunction(
+        () =>
+          window.__APOLLO_STATE__ &&
+          Object.values(window.__APOLLO_STATE__).some(
+            x => Array.isArray(x.keywordList) && x.keywordList.length > 0
+          ),
+        { timeout: 15000 }
+      );
+    } catch {
+      // 첫 시도 실패 → 1초 뒤 재시도
+      await page.waitForTimeout(1000);
+    }
+
+    // ── keywordList 추출 ──
     const keywords = await page.evaluate(() => {
       const state = window.__APOLLO_STATE__ ?? {};
       for (const key in state) {
@@ -61,7 +64,6 @@ app.post('/api/get-keywords', async (req, res) => {
     if (!keywords.length) {
       return res.status(404).json({ error: '대표 키워드를 찾을 수 없습니다.' });
     }
-
     res.json({ keywords });
   } catch (err) {
     console.error('❌ 크롤링 실패:', err);
