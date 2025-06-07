@@ -44,7 +44,7 @@ app.post('/api/get-keywords', async (req, res) => {
       );
     } catch {
       // 첫 시도 실패 → 1초 뒤 재시도
-      await page.waitForTimeout(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     // ── keywordList 추출 ──
